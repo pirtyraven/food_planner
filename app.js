@@ -50,6 +50,7 @@ const state = loadState();
 
 const weekPicker = document.getElementById("weekPicker");
 const applyRotationBtn = document.getElementById("applyRotation");
+const randomizeWeekMenuBtn = document.getElementById("randomizeWeekMenu");
 const rotationStatus = document.getElementById("rotationStatus");
 const mealForm = document.getElementById("mealForm");
 const mealName = document.getElementById("mealName");
@@ -93,6 +94,10 @@ function registerEvents() {
 
   applyRotationBtn.addEventListener("click", () => {
     resetWeekToDefaultRotation(state.activeWeek);
+  });
+
+  randomizeWeekMenuBtn.addEventListener("click", () => {
+    randomizeWeekMenu(state.activeWeek);
   });
 
   mealForm.addEventListener("submit", (event) => {
@@ -340,6 +345,42 @@ function resetWeekToDefaultRotation(weekKey) {
   state.weeks[weekKey].mealIds = [...state.weeks[weekKey].defaultMealIds];
   saveState();
   render();
+}
+
+function randomizeWeekMenu(weekKey) {
+  ensureWeek(weekKey);
+  const availableIds = state.meals.map((meal) => meal.id);
+  if (availableIds.length === 0) {
+    state.weeks[weekKey].mealIds = [];
+    saveState();
+    render();
+    return;
+  }
+
+  const targetCount = Math.min(MAX_WEEK_MEALS, availableIds.length);
+  const currentKey = state.weeks[weekKey].mealIds.slice().sort().join("|");
+  let nextIds = [];
+
+  for (let i = 0; i < 8; i += 1) {
+    nextIds = pickRandomUnique(availableIds, targetCount);
+    const nextKey = nextIds.slice().sort().join("|");
+    if (nextKey !== currentKey || availableIds.length <= targetCount) {
+      break;
+    }
+  }
+
+  state.weeks[weekKey].mealIds = nextIds;
+  saveState();
+  render();
+}
+
+function pickRandomUnique(source, count) {
+  const copy = [...source];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, count);
 }
 
 function getEffectiveIngredientCountsForWeek(weekKey) {
