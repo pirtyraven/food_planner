@@ -64,6 +64,7 @@ h2 {
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   align-items: center;
   margin-bottom: 0.6rem;
@@ -71,6 +72,10 @@ h2 {
 
 .row.between {
   justify-content: space-between;
+}
+
+.selected-meals .row.between {
+  align-items: flex-start;
 }
 
 .row.end {
@@ -99,6 +104,11 @@ input {
   border-radius: 9px;
   cursor: pointer;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
+  word-break: break-word;
+  max-width: 100%;
   transition: transform 0.12s ease, background 0.12s ease;
 }
 
@@ -129,14 +139,22 @@ input {
   padding: 0.55rem 0.65rem;
   background: #fff;
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
 .meal-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
+  justify-content: flex-end;
+}
+
+.meal-actions .btn {
+  flex: 0 1 auto;
 }
 
 .meal-checkbox {
@@ -192,6 +210,17 @@ input {
 
 .meal-pool .list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.meal-pool .list li > div:first-child,
+.shopping-list li > label:first-child {
+  min-width: 0;
+  flex: 1 1 150px;
+}
+
+.meal-pool .list li .meal-actions,
+.shopping-list li .meal-actions {
+  flex: 0 1 auto;
 }
 
 .ingredient-check {
@@ -250,6 +279,27 @@ input {
   background: rgba(0, 0, 0, 0.35);
 }
 
+@media (max-width: 1180px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .controls,
+  .rotation,
+  .selected-meals,
+  .meal-pool,
+  .shopping {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .meal-pool .list,
+  .shopping-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .grid {
     grid-template-columns: 1fr;
@@ -276,5 +326,9 @@ input {
   .meal-pool .list,
   .shopping-list {
     grid-template-columns: 1fr;
+  }
+
+  .btn {
+    font-size: 0.9rem;
   }
 }
