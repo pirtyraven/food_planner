@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Veckoplanering Mat</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Familjens matplanering</h1>
+    <p>Välj 4 rätter för veckan och få en inköpslista automatiskt.</p>
+  </header>
+
+  <main class="grid">
+    <section class="card controls">
+      <h2>Vecka</h2>
+      <div class="row">
+        <label for="weekPicker">Välj vecka</label>
+        <input id="weekPicker" type="week" />
+      </div>
+      <h3>Lägg till maträtt</h3>
+      <form id="mealForm" class="inline-form">
+        <input id="mealName" type="text" placeholder="Ny maträtt" required />
+        <input id="mealIngredients" type="text" placeholder="Ingredienser, separera med kommatecken" required />
+        <button type="submit" class="btn">Lägg till</button>
+      </form>
+    </section>
+
+    <section class="card rotation">
+      <h2>Rullande schema</h2>
+      <p class="hint">Varje vecka får en slumpad standardkombination som prioriterar rätter ni inte valt på länge.</p>
+      <p id="rotationStatus" class="rotation-status">Standard för veckan beräknas automatiskt.</p>
+      <div class="row">
+        <button id="applyRotation" class="btn">Återställ till standard för veckan</button>
+      </div>
+    </section>
+
+    <section class="card selected-meals">
+      <h2>Veckans 4 rätter</h2>
+      <p class="hint">Välj exakt 4 rätter för en komplett vecka.</p>
+      <ul id="selectedList" class="list selected"></ul>
+      <div class="row between">
+        <span id="selectedCount">0 / 4 valda</span>
+        <button id="clearWeek" class="btn btn-secondary">Rensa vecka</button>
+      </div>
+    </section>
+
+    <section class="card meal-pool">
+      <h2>Maträtter</h2>
+      <p class="hint">Checka i/ur rätter för veckan.</p>
+      <ul id="mealList" class="list"></ul>
+    </section>
+
+    <section class="card shopping">
+      <h2>Inköpslista</h2>
+      <p class="hint">Autogenereras från valda rätter. Lägg till eller ta bort för att anpassa veckan.</p>
+      <form id="ingredientForm" class="inline-form">
+        <input id="ingredientName" type="text" placeholder="Lägg till ingrediens" required />
+        <button type="submit" class="btn">Lägg till ingrediens</button>
+      </form>
+      <div class="row end">
+        <button id="resetIngredients" class="btn btn-secondary">Återställ ingredienser</button>
+      </div>
+      <ul id="shoppingList" class="list shopping-list"></ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>Data sparas lokalt i webbläsaren.</small>
+  </footer>
+
+  <dialog id="ingredientsDialog" class="ingredients-dialog">
+    <h3 id="ingredientsDialogTitle">Ingredienser</h3>
+    <p id="ingredientsDialogContent"></p>
+    <div class="row end">
+      <button id="closeIngredientsDialog" class="btn btn-secondary" type="button">Stäng</button>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

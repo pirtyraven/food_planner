@@ -1,0 +1,280 @@
+:root {
+  --bg: #f5f3ee;
+  --card: #fffdf8;
+  --ink: #1f1f1f;
+  --muted: #5c5c5c;
+  --brand: #166a4a;
+  --brand-2: #0f5136;
+  --line: #ddd6c8;
+  --danger: #a6342d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 20% 10%, #fdf8eb, var(--bg) 40%),
+    linear-gradient(140deg, #f4f1ea, #ece8df);
+}
+
+.topbar {
+  padding: 1.2rem 1rem;
+  text-align: center;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.topbar p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+}
+
+.grid {
+  width: min(1120px, 96vw);
+  margin: 0 auto 2rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(31, 31, 31, 0.06);
+}
+
+.controls,
+.rotation,
+.selected-meals {
+  grid-column: span 2;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.row.between {
+  justify-content: space-between;
+}
+
+.row.end {
+  justify-content: flex-end;
+}
+
+.inline-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 0.95rem;
+}
+
+.btn {
+  border: 0;
+  background: var(--brand);
+  color: white;
+  padding: 0.6rem 0.8rem;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  background: var(--brand-2);
+}
+
+.btn-secondary {
+  background: #5f6c74;
+}
+
+.btn-danger {
+  background: var(--danger);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.list li {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.meal-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.meal-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.85rem;
+  background: #f8f6ef;
+}
+
+.meal-checkbox input {
+  width: auto;
+  margin: 0;
+  transform: scale(1.1);
+}
+
+.ingredients-link {
+  border: 0;
+  padding: 0;
+  margin-top: 0.15rem;
+  background: transparent;
+  color: var(--brand);
+  text-decoration: underline;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ingredients-link:hover {
+  color: var(--brand-2);
+}
+
+.mini {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: -0.2rem;
+}
+
+.shopping-list li {
+  background: #fffdf2;
+}
+
+.meal-pool {
+  grid-column: span 3;
+}
+
+.meal-pool .list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ingredient-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ingredient-check input {
+  width: auto;
+  margin: 0;
+}
+
+.shopping-list li.ingredient-checked {
+  background: #f0eee8;
+  color: #7a7a7a;
+}
+
+.shopping-list li.ingredient-checked .ingredient-check span {
+  text-decoration: line-through;
+}
+
+.shopping {
+  grid-column: span 3;
+}
+
+.shopping-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.status {
+  color: var(--muted);
+  min-height: 1rem;
+  display: inline-block;
+}
+
+.rotation-status {
+  margin: 0.25rem 0 0.8rem;
+  font-weight: 600;
+}
+
+.footer {
+  text-align: center;
+  padding: 0 1rem 1.5rem;
+  color: var(--muted);
+}
+
+.ingredients-dialog {
+  width: min(520px, 92vw);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.ingredients-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .row.between {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .controls,
+  .rotation,
+  .selected-meals,
+  .meal-pool,
+  .shopping {
+    grid-column: span 1;
+  }
+
+  .meal-pool .list,
+  .shopping-list {
+    grid-template-columns: 1fr;
+  }
+}
