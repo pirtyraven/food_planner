@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Matplanering">
+  <rect width="192" height="192" rx="38" fill="#166a4a"/>
+  <rect x="30" y="34" width="132" height="124" rx="14" fill="#fffdf8"/>
+  <rect x="42" y="50" width="48" height="10" rx="4" fill="#166a4a"/>
+  <rect x="42" y="70" width="108" height="8" rx="4" fill="#9fb8ad"/>
+  <rect x="42" y="88" width="108" height="8" rx="4" fill="#9fb8ad"/>
+  <rect x="42" y="106" width="108" height="8" rx="4" fill="#9fb8ad"/>
+  <circle cx="134" cy="57" r="14" fill="#f0b429"/>
+  <path d="M128 57l4 4 8-8" fill="none" stroke="#1f1f1f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -27,6 +27,17 @@ python3 -m http.server 8000
 
 Öppna sedan `http://localhost:8000`.
 
+## Installera som webbapp (iPhone)
+- Öppna er publicerade sida i Safari.
+- Tryck på `Dela`.
+- Välj `Lägg till på hemskärmen`.
+- Starta appen från hemskärmen.
+
+PWA-filer som ingår:
+- `manifest.webmanifest`
+- `sw.js`
+- `icon-192.svg`, `icon-512.svg`
+
 ## Gemensam synk (Supabase)
 Appen är konfigurerad för Supabase-projektet `fpjxossedqvcetgoppwg` och delar data via `family_id` = `per-familj`.
 

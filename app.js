@@ -83,6 +83,7 @@ function init() {
   registerEvents();
   render();
   startRemoteSync();
+  registerServiceWorker();
 }
 
 function registerEvents() {
@@ -874,6 +875,18 @@ function getSerializableState() {
     weeks: state.weeks,
     activeWeek: state.activeWeek
   };
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((error) => {
+      console.error("Kunde inte registrera service worker:", error);
+    });
+  });
 }
 
 function currentWeekString() {
