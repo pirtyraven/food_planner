@@ -342,7 +342,9 @@ function deleteMeal(mealId) {
 
 function resetWeekToDefaultRotation(weekKey) {
   ensureWeek(weekKey);
-  state.weeks[weekKey].mealIds = [...state.weeks[weekKey].defaultMealIds];
+  const fullDefault = buildCompleteDefaultMenu(weekKey, state.weeks[weekKey].defaultMealIds);
+  state.weeks[weekKey].defaultMealIds = fullDefault;
+  state.weeks[weekKey].mealIds = [...fullDefault];
   saveState();
   render();
 }
@@ -499,11 +501,8 @@ function ensureWeek(weekKey) {
     return;
   }
   normalizeWeekData(state.weeks[weekKey]);
-  state.weeks[weekKey].defaultMealIds = sanitizeMealIdList(state.weeks[weekKey].defaultMealIds);
+  state.weeks[weekKey].defaultMealIds = buildCompleteDefaultMenu(weekKey, state.weeks[weekKey].defaultMealIds);
   state.weeks[weekKey].mealIds = sanitizeMealIdList(state.weeks[weekKey].mealIds);
-  if (state.weeks[weekKey].defaultMealIds.length === 0) {
-    state.weeks[weekKey].defaultMealIds = generateWeightedDefaultMealsForWeek(weekKey);
-  }
 }
 
 function normalizeWeekData(week) {
@@ -557,6 +556,40 @@ function generateWeightedDefaultMealsForWeek(weekKey) {
   }
 
   return selected;
+}
+
+function buildCompleteDefaultMenu(weekKey, baseMealIds) {
+  const availableIds = state.meals.map((meal) => meal.id);
+  const targetCount = Math.min(MAX_WEEK_MEALS, availableIds.length);
+  let result = sanitizeMealIdList(baseMealIds).slice(0, targetCount);
+
+  if (result.length >= targetCount) {
+    return result;
+  }
+
+  const currentWeekSerial = weekKeyToSerial(weekKey);
+  const lastUsedSerialByMealId = getLastUsedSerialByMealIdBeforeWeek(weekKey);
+  const remaining = availableIds.filter((id) => !result.includes(id));
+
+  while (result.length < targetCount && remaining.length > 0) {
+    const weighted = remaining.map((mealId) => {
+      const lastUsedSerial = lastUsedSerialByMealId.get(mealId);
+      const age = Number.isInteger(lastUsedSerial)
+        ? Math.max(1, currentWeekSerial - lastUsedSerial)
+        : NEVER_USED_AGE_BONUS;
+      const weight = Math.pow(age, AGE_WEIGHT_POWER) + Math.random() * 0.25;
+      return { mealId, weight };
+    });
+
+    const pick = pickByWeight(weighted);
+    result.push(pick);
+    const index = remaining.indexOf(pick);
+    if (index >= 0) {
+      remaining.splice(index, 1);
+    }
+  }
+
+  return result;
 }
 
 function pickByWeight(items) {
