@@ -88,7 +88,8 @@ h2 {
   margin-bottom: 0.8rem;
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--line);
@@ -202,6 +203,19 @@ input {
 
 .shopping-list li {
   background: #fffdf2;
+}
+
+.selected .add-slot-item {
+  background: #f7f5ef;
+  border-style: dashed;
+}
+
+.add-slot-btn {
+  width: 100%;
+}
+
+.slot-select {
+  min-width: 170px;
 }
 
 .meal-pool {

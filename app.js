@@ -45,6 +45,7 @@ let remoteSaveTimer = null;
 let lastRemoteUpdatedAt = null;
 let isApplyingRemoteState = false;
 let remotePollTimer = null;
+let openAddSlotIndex = null;
 
 const state = loadState();
 
@@ -229,10 +230,11 @@ function openIngredientsPopup(meal) {
 function renderSelectedMeals() {
   selectedList.innerHTML = "";
   const mealIds = state.weeks[state.activeWeek].mealIds;
+  const availableMeals = state.meals.filter((meal) => !mealIds.includes(meal.id));
 
-  if (mealIds.length === 0) {
+  if (mealIds.length === 0 && availableMeals.length === 0) {
     const li = document.createElement("li");
-    li.textContent = "Inga rätter valda ännu.";
+    li.textContent = "Inga maträtter finns ännu. Lägg till en rätt först.";
     selectedList.appendChild(li);
     return;
   }
@@ -241,9 +243,90 @@ function renderSelectedMeals() {
     const meal = state.meals.find((m) => m.id === id);
     if (!meal) return;
     const li = document.createElement("li");
-    li.innerHTML = `<span>${index + 1}. ${escapeHtml(meal.name)}</span>`;
+    const name = document.createElement("span");
+    name.textContent = `${index + 1}. ${meal.name}`;
+
+    const actions = document.createElement("div");
+    actions.className = "meal-actions";
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "btn btn-danger mini";
+    removeBtn.textContent = "X";
+    removeBtn.title = "Ta bort från veckan";
+    removeBtn.addEventListener("click", () => {
+      openAddSlotIndex = null;
+      setMealSelection(meal.id, false);
+    });
+
+    actions.append(removeBtn);
+    li.append(name, actions);
     selectedList.appendChild(li);
   });
+
+  const slotsLeft = MAX_WEEK_MEALS - mealIds.length;
+  for (let i = 0; i < slotsLeft; i += 1) {
+    const slotIndex = mealIds.length + i;
+    const li = document.createElement("li");
+    li.className = "add-slot-item";
+
+    if (openAddSlotIndex === slotIndex) {
+      const select = document.createElement("select");
+      select.className = "slot-select";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Välj rätt";
+      select.appendChild(placeholder);
+
+      availableMeals.forEach((meal) => {
+        const option = document.createElement("option");
+        option.value = meal.id;
+        option.textContent = meal.name;
+        select.appendChild(option);
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "meal-actions";
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "btn mini";
+      addBtn.textContent = "Lägg till";
+      addBtn.addEventListener("click", () => {
+        if (!select.value) {
+          return;
+        }
+        openAddSlotIndex = null;
+        setMealSelection(select.value, true);
+      });
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn btn-secondary mini";
+      cancelBtn.textContent = "Avbryt";
+      cancelBtn.addEventListener("click", () => {
+        openAddSlotIndex = null;
+        renderSelectedMeals();
+      });
+
+      actions.append(addBtn, cancelBtn);
+      li.append(select, actions);
+    } else {
+      const plusBtn = document.createElement("button");
+      plusBtn.type = "button";
+      plusBtn.className = "btn btn-secondary mini add-slot-btn";
+      plusBtn.textContent = "+ Lägg till rätt";
+      plusBtn.addEventListener("click", () => {
+        openAddSlotIndex = slotIndex;
+        renderSelectedMeals();
+      });
+
+      li.append(plusBtn);
+    }
+
+    selectedList.appendChild(li);
+  }
 }
 
 function renderShoppingList() {
