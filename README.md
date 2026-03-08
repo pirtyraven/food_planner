@@ -3,6 +3,9 @@
 En enkel dashboard för familjens veckoplanering av mat.
 
 ## Funktioner
+- Flera konton (förinställt: `Familjen Elisson`, `Heidi/Richard`)
+- Konto-specifika rätter och veckoplaner
+- Valbar åtkomst till andra kontons rätter via toggle
 - Välj vecka (`YYYY-Www`)
 - Lägg till nya maträtter i veckokortet (namn + ingredienser)
 - Välj exakt 4 rätter för veckan

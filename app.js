@@ -9,6 +9,10 @@ const FAMILY_PLAN_ID = APP_CONFIG.FAMILY_PLAN_ID || "per-familj";
 const REMOTE_TABLE = APP_CONFIG.REMOTE_TABLE || "family_plans";
 const REMOTE_POLL_MS = APP_CONFIG.REMOTE_POLL_MS || 15000;
 const REMOTE_SAVE_DEBOUNCE_MS = APP_CONFIG.REMOTE_SAVE_DEBOUNCE_MS || 600;
+const DEFAULT_ACCOUNTS = [
+  { id: "familjen-elisson", name: "Familjen Elisson" },
+  { id: "heidi-richard", name: "Heidi/Richard" }
+];
 
 const defaultMealDefinitions = [
   { name: "Spaghetti bolognese", ingredients: ["spaghetti", "nötfärs", "tomatkross", "gul lök", "vitlök"] },
@@ -33,10 +37,11 @@ const defaultMealDefinitions = [
   { name: "Kyckling tacos", ingredients: ["kycklingfilé", "tortillabröd", "paprika", "sallad", "creme fraiche"] }
 ];
 
-const defaultMeals = defaultMealDefinitions.map((meal) => ({
+const defaultMeals = defaultMealDefinitions.map((meal, index) => ({
   id: crypto.randomUUID(),
   name: meal.name,
-  ingredients: meal.ingredients
+  ingredients: meal.ingredients,
+  ownerAccountId: index < Math.ceil(defaultMealDefinitions.length / 2) ? DEFAULT_ACCOUNTS[0].id : DEFAULT_ACCOUNTS[1].id
 }));
 
 const supabaseClient = window.supabase?.createClient
@@ -52,6 +57,8 @@ let openAddSearchQuery = "";
 
 const state = loadState();
 
+const accountPicker = document.getElementById("accountPicker");
+const showSharedMeals = document.getElementById("showSharedMeals");
 const weekPicker = document.getElementById("weekPicker");
 const applyRotationBtn = document.getElementById("applyRotation");
 const randomizeWeekMenuBtn = document.getElementById("randomizeWeekMenu");
@@ -75,15 +82,24 @@ const closeIngredientsDialogBtn = document.getElementById("closeIngredientsDialo
 init();
 
 function init() {
+  ensureAccounts();
+  if (!state.activeAccountId || !state.accounts.some((account) => account.id === state.activeAccountId)) {
+    state.activeAccountId = state.accounts[0].id;
+  }
+
   weekPicker.value = state.activeWeek || currentWeekString();
   if (!state.activeWeek) {
     state.activeWeek = weekPicker.value;
   }
 
   ensureStateMeta(state);
+  ensureMealOwners();
+  migrateLegacyWeekKeys(state);
   ensureWeek(state.activeWeek);
   Object.values(state.weeks).forEach((week) => normalizeWeekData(week));
 
+  renderAccountPicker();
+  showSharedMeals.checked = getAccountSettings().allowSharedMeals;
   registerEvents();
   render();
   startRemoteSync();
@@ -91,6 +107,22 @@ function init() {
 }
 
 function registerEvents() {
+  accountPicker.addEventListener("change", () => {
+    state.activeAccountId = accountPicker.value;
+    ensureAccounts();
+    ensureWeek(state.activeWeek);
+    showSharedMeals.checked = getAccountSettings().allowSharedMeals;
+    saveState({ syncRemote: false });
+    render();
+  });
+
+  showSharedMeals.addEventListener("change", () => {
+    getAccountSettings().allowSharedMeals = showSharedMeals.checked;
+    markAccountSettingsUpdated(state.activeAccountId);
+    saveState();
+    render();
+  });
+
   weekPicker.addEventListener("change", () => {
     state.activeWeek = weekPicker.value;
     ensureWeek(state.activeWeek);
@@ -121,9 +153,10 @@ function registerEvents() {
     state.meals.push({
       id: crypto.randomUUID(),
       name,
-      ingredients
+      ingredients,
+      ownerAccountId: state.activeAccountId
     });
-    markMealsUpdated();
+    markMealsUpdated(state.activeAccountId);
 
     mealName.value = "";
     mealIngredients.value = "";
@@ -133,7 +166,7 @@ function registerEvents() {
 
   clearWeekBtn.addEventListener("click", () => {
     ensureWeek(state.activeWeek);
-    state.weeks[state.activeWeek].mealIds = [];
+    getWeek(state.activeWeek).mealIds = [];
     markWeekUpdated(state.activeWeek);
     saveState();
     render();
@@ -162,7 +195,7 @@ function render() {
   renderMeals();
   renderSelectedMeals();
   renderShoppingList();
-  selectedCount.textContent = `${state.weeks[state.activeWeek].mealIds.length} / ${MAX_WEEK_MEALS} valda`;
+  selectedCount.textContent = `${getWeek(state.activeWeek).mealIds.length} / ${MAX_WEEK_MEALS} valda`;
 }
 
 function renderRotationStatus() {
@@ -171,14 +204,22 @@ function renderRotationStatus() {
 
 function renderMeals() {
   mealList.innerHTML = "";
-  const week = state.weeks[state.activeWeek];
+  const week = getWeek(state.activeWeek);
+  const visibleMeals = getVisibleMealsForAccount();
 
-  state.meals.forEach((meal) => {
+  visibleMeals.forEach((meal) => {
     const li = document.createElement("li");
 
     const info = document.createElement("div");
     const title = document.createElement("strong");
     title.textContent = meal.name;
+    if (meal.ownerAccountId !== state.activeAccountId) {
+      const ownerTag = document.createElement("small");
+      ownerTag.textContent = `(${getAccountName(meal.ownerAccountId)})`;
+      info.append(title, document.createElement("br"), ownerTag, document.createElement("br"));
+    } else {
+      info.append(title, document.createElement("br"));
+    }
 
     const ingredientsLink = document.createElement("button");
     ingredientsLink.type = "button";
@@ -188,7 +229,7 @@ function renderMeals() {
       openIngredientsPopup(meal);
     });
 
-    info.append(title, document.createElement("br"), ingredientsLink);
+    info.append(ingredientsLink);
 
     const actions = document.createElement("div");
     actions.className = "meal-actions";
@@ -211,12 +252,14 @@ function renderMeals() {
 
     checkboxLabel.append(checkbox, checkboxText);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn btn-danger mini";
-    deleteBtn.textContent = "Radera";
-    deleteBtn.addEventListener("click", () => deleteMeal(meal.id));
-
-    actions.append(checkboxLabel, deleteBtn);
+    actions.append(checkboxLabel);
+    if (meal.ownerAccountId === state.activeAccountId) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-danger mini";
+      deleteBtn.textContent = "Radera";
+      deleteBtn.addEventListener("click", () => deleteMeal(meal.id));
+      actions.append(deleteBtn);
+    }
     li.append(info, actions);
     mealList.appendChild(li);
   });
@@ -236,8 +279,9 @@ function openIngredientsPopup(meal) {
 
 function renderSelectedMeals() {
   selectedList.innerHTML = "";
-  const mealIds = state.weeks[state.activeWeek].mealIds;
-  const availableMeals = state.meals.filter((meal) => !mealIds.includes(meal.id));
+  const week = getWeek(state.activeWeek);
+  const mealIds = week.mealIds;
+  const availableMeals = getVisibleMealsForAccount().filter((meal) => !mealIds.includes(meal.id));
 
   if (mealIds.length === 0 && availableMeals.length === 0) {
     const li = document.createElement("li");
@@ -361,7 +405,7 @@ function renderSelectedMeals() {
 
 function renderShoppingList() {
   shoppingList.innerHTML = "";
-  const week = state.weeks[state.activeWeek];
+  const week = getWeek(state.activeWeek);
   const ingredientCounts = getEffectiveIngredientCountsForWeek(state.activeWeek);
 
   if (ingredientCounts.size === 0) {
@@ -410,7 +454,7 @@ function renderShoppingList() {
 
 function setMealSelection(mealId, shouldBeSelected) {
   ensureWeek(state.activeWeek);
-  const week = state.weeks[state.activeWeek];
+  const week = getWeek(state.activeWeek);
   const i = week.mealIds.indexOf(mealId);
 
   if (shouldBeSelected) {
@@ -445,12 +489,14 @@ function deleteMeal(mealId) {
     return;
   }
 
+  const ownerAccountId = meal.ownerAccountId || state.activeAccountId;
+
   state.meals = state.meals.filter((meal) => meal.id !== mealId);
   Object.values(state.weeks).forEach((week) => {
     week.mealIds = week.mealIds.filter((id) => id !== mealId);
     week.defaultMealIds = week.defaultMealIds.filter((id) => id !== mealId);
   });
-  markMealsUpdated();
+  markMealsUpdated(ownerAccountId);
   Object.keys(state.weeks).forEach((weekKey) => markWeekUpdated(weekKey));
   saveState();
   render();
@@ -458,9 +504,10 @@ function deleteMeal(mealId) {
 
 function resetWeekToDefaultRotation(weekKey) {
   ensureWeek(weekKey);
-  const fullDefault = buildCompleteDefaultMenu(weekKey, state.weeks[weekKey].defaultMealIds);
-  state.weeks[weekKey].defaultMealIds = fullDefault;
-  state.weeks[weekKey].mealIds = [...fullDefault];
+  const week = getWeek(weekKey);
+  const fullDefault = buildCompleteDefaultMenu(weekKey, week.defaultMealIds);
+  week.defaultMealIds = fullDefault;
+  week.mealIds = [...fullDefault];
   markWeekUpdated(weekKey);
   saveState();
   render();
@@ -468,9 +515,9 @@ function resetWeekToDefaultRotation(weekKey) {
 
 function randomizeWeekMenu(weekKey) {
   ensureWeek(weekKey);
-  const availableIds = state.meals.map((meal) => meal.id);
+  const availableIds = getVisibleMealsForAccount().map((meal) => meal.id);
   if (availableIds.length === 0) {
-    state.weeks[weekKey].mealIds = [];
+    getWeek(weekKey).mealIds = [];
     markWeekUpdated(weekKey);
     saveState();
     render();
@@ -478,7 +525,7 @@ function randomizeWeekMenu(weekKey) {
   }
 
   const targetCount = Math.min(MAX_WEEK_MEALS, availableIds.length);
-  const currentKey = state.weeks[weekKey].mealIds.slice().sort().join("|");
+  const currentKey = getWeek(weekKey).mealIds.slice().sort().join("|");
   let nextIds = [];
 
   for (let i = 0; i < 8; i += 1) {
@@ -489,7 +536,7 @@ function randomizeWeekMenu(weekKey) {
     }
   }
 
-  state.weeks[weekKey].mealIds = nextIds;
+  getWeek(weekKey).mealIds = nextIds;
   markWeekUpdated(weekKey);
   saveState();
   render();
@@ -506,7 +553,7 @@ function pickRandomUnique(source, count) {
 
 function getEffectiveIngredientCountsForWeek(weekKey) {
   ensureWeek(weekKey);
-  const week = state.weeks[weekKey];
+  const week = getWeek(weekKey);
   const autoCounts = getAutoIngredientCountsForWeek(weekKey);
   const result = new Map(autoCounts);
   const removed = new Set(week.ingredientEdits.removed);
@@ -524,7 +571,7 @@ function getEffectiveIngredientCountsForWeek(weekKey) {
 
 function getAutoIngredientCountsForWeek(weekKey) {
   ensureWeek(weekKey);
-  const week = state.weeks[weekKey];
+  const week = getWeek(weekKey);
   const autoCounts = new Map();
 
   week.mealIds.forEach((id) => {
@@ -545,7 +592,7 @@ function addCustomIngredient(rawName) {
   }
 
   ensureWeek(state.activeWeek);
-  const week = state.weeks[state.activeWeek];
+  const week = getWeek(state.activeWeek);
   const autoCounts = getAutoIngredientCountsForWeek(state.activeWeek);
   const removedIndex = week.ingredientEdits.removed.indexOf(ingredient);
 
@@ -562,7 +609,7 @@ function addCustomIngredient(rawName) {
 
 function removeIngredientForWeek(ingredient) {
   ensureWeek(state.activeWeek);
-  const week = state.weeks[state.activeWeek];
+  const week = getWeek(state.activeWeek);
   const autoCounts = getAutoIngredientCountsForWeek(state.activeWeek);
   const hasAutoIngredient = autoCounts.has(ingredient);
   const removed = week.ingredientEdits.removed;
@@ -587,8 +634,9 @@ function removeIngredientForWeek(ingredient) {
 
 function resetIngredientsForWeek(weekKey) {
   ensureWeek(weekKey);
-  state.weeks[weekKey].ingredientEdits = { added: [], removed: [] };
-  state.weeks[weekKey].checkedIngredients = [];
+  const week = getWeek(weekKey);
+  week.ingredientEdits = { added: [], removed: [] };
+  week.checkedIngredients = [];
   markWeekUpdated(weekKey);
   saveState();
   render();
@@ -596,7 +644,7 @@ function resetIngredientsForWeek(weekKey) {
 
 function setIngredientCheckedForWeek(ingredient, checked) {
   ensureWeek(state.activeWeek);
-  const week = state.weeks[state.activeWeek];
+  const week = getWeek(state.activeWeek);
   const i = week.checkedIngredients.indexOf(ingredient);
 
   if (checked && i < 0) {
@@ -613,9 +661,10 @@ function setIngredientCheckedForWeek(ingredient, checked) {
 }
 
 function ensureWeek(weekKey) {
-  if (!state.weeks[weekKey]) {
+  const scopedKey = getScopedWeekKey(weekKey);
+  if (!state.weeks[scopedKey]) {
     const defaultMealIds = generateWeightedDefaultMealsForWeek(weekKey);
-    state.weeks[weekKey] = {
+    state.weeks[scopedKey] = {
       mealIds: [...defaultMealIds],
       defaultMealIds,
       ingredientEdits: { added: [], removed: [] },
@@ -623,9 +672,17 @@ function ensureWeek(weekKey) {
     };
     return;
   }
-  normalizeWeekData(state.weeks[weekKey]);
-  state.weeks[weekKey].defaultMealIds = buildCompleteDefaultMenu(weekKey, state.weeks[weekKey].defaultMealIds);
-  state.weeks[weekKey].mealIds = sanitizeMealIdList(state.weeks[weekKey].mealIds);
+  normalizeWeekData(state.weeks[scopedKey]);
+  state.weeks[scopedKey].defaultMealIds = buildCompleteDefaultMenu(weekKey, state.weeks[scopedKey].defaultMealIds);
+  state.weeks[scopedKey].mealIds = sanitizeMealIdList(state.weeks[scopedKey].mealIds);
+}
+
+function getScopedWeekKey(weekKey, accountId = state.activeAccountId) {
+  return `${accountId}::${weekKey}`;
+}
+
+function getWeek(weekKey) {
+  return state.weeks[getScopedWeekKey(weekKey)];
 }
 
 function normalizeWeekData(week) {
@@ -651,7 +708,7 @@ function normalizeWeekData(week) {
 
 function generateWeightedDefaultMealsForWeek(weekKey) {
   const currentWeekSerial = weekKeyToSerial(weekKey);
-  const candidateIds = state.meals.map((meal) => meal.id);
+  const candidateIds = getPlanningCandidateMeals().map((meal) => meal.id);
   if (candidateIds.length <= MAX_WEEK_MEALS) {
     return [...candidateIds];
   }
@@ -682,7 +739,7 @@ function generateWeightedDefaultMealsForWeek(weekKey) {
 }
 
 function buildCompleteDefaultMenu(weekKey, baseMealIds) {
-  const availableIds = state.meals.map((meal) => meal.id);
+  const availableIds = getPlanningCandidateMeals().map((meal) => meal.id);
   const targetCount = Math.min(MAX_WEEK_MEALS, availableIds.length);
   let result = sanitizeMealIdList(baseMealIds).slice(0, targetCount);
 
@@ -737,7 +794,11 @@ function getLastUsedSerialByMealIdBeforeWeek(weekKey) {
   const usage = new Map();
 
   Object.entries(state.weeks).forEach(([key, week]) => {
-    const serial = weekKeyToSerial(key);
+    const [accountId, plainWeekKey] = parseScopedWeekKey(key);
+    if (accountId !== state.activeAccountId) {
+      return;
+    }
+    const serial = weekKeyToSerial(plainWeekKey);
     if (serial >= targetSerial) {
       return;
     }
@@ -774,6 +835,91 @@ function sanitizeMealIdList(mealIds) {
   return mealIds.filter((id, index) => allowed.has(id) && mealIds.indexOf(id) === index).slice(0, MAX_WEEK_MEALS);
 }
 
+function ensureAccounts() {
+  if (!Array.isArray(state.accounts)) {
+    state.accounts = structuredClone(DEFAULT_ACCOUNTS);
+    return;
+  }
+
+  DEFAULT_ACCOUNTS.forEach((defaultAccount) => {
+    if (!state.accounts.some((account) => account.id === defaultAccount.id)) {
+      state.accounts.push(structuredClone(defaultAccount));
+    }
+  });
+}
+
+function ensureMealOwners() {
+  state.meals.forEach((meal) => {
+    if (!meal.ownerAccountId || !state.accounts.some((account) => account.id === meal.ownerAccountId)) {
+      meal.ownerAccountId = DEFAULT_ACCOUNTS[0].id;
+    }
+  });
+}
+
+function renderAccountPicker() {
+  accountPicker.innerHTML = "";
+  state.accounts.forEach((account) => {
+    const option = document.createElement("option");
+    option.value = account.id;
+    option.textContent = account.name;
+    accountPicker.append(option);
+  });
+  accountPicker.value = state.activeAccountId;
+}
+
+function getAccountName(accountId) {
+  const account = state.accounts.find((item) => item.id === accountId);
+  return account ? account.name : accountId;
+}
+
+function getAccountSettings(accountId = state.activeAccountId) {
+  if (!state.accountSettings || typeof state.accountSettings !== "object") {
+    state.accountSettings = {};
+  }
+  if (!state.accountSettings[accountId]) {
+    state.accountSettings[accountId] = { allowSharedMeals: false };
+  }
+  return state.accountSettings[accountId];
+}
+
+function getVisibleMealsForAccount(accountId = state.activeAccountId) {
+  const settings = getAccountSettings(accountId);
+  return state.meals.filter((meal) => settings.allowSharedMeals || meal.ownerAccountId === accountId);
+}
+
+function getPlanningCandidateMeals() {
+  return state.meals.filter((meal) => meal.ownerAccountId === state.activeAccountId);
+}
+
+function parseScopedWeekKey(scopedKey) {
+  const splitter = scopedKey.indexOf("::");
+  if (splitter < 0) {
+    return [DEFAULT_ACCOUNTS[0].id, scopedKey];
+  }
+  return [scopedKey.slice(0, splitter), scopedKey.slice(splitter + 2)];
+}
+
+function migrateLegacyWeekKeys(targetState) {
+  const migrated = {};
+  Object.entries(targetState.weeks || {}).forEach(([key, value]) => {
+    if (key.includes("::")) {
+      migrated[key] = value;
+      return;
+    }
+    const scoped = `${DEFAULT_ACCOUNTS[0].id}::${key}`;
+    migrated[scoped] = migrated[scoped] || value;
+  });
+  targetState.weeks = migrated;
+
+  ensureStateMeta(targetState);
+  const migratedMeta = {};
+  Object.entries(targetState.meta.weeksUpdatedAt || {}).forEach(([key, value]) => {
+    const scoped = key.includes("::") ? key : `${DEFAULT_ACCOUNTS[0].id}::${key}`;
+    migratedMeta[scoped] = value;
+  });
+  targetState.meta.weeksUpdatedAt = migratedMeta;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -783,6 +929,9 @@ function loadState() {
         meals: Array.isArray(parsed.meals) ? parsed.meals : structuredClone(defaultMeals),
         weeks: parsed.weeks || {},
         activeWeek: parsed.activeWeek || currentWeekString(),
+        activeAccountId: parsed.activeAccountId || DEFAULT_ACCOUNTS[0].id,
+        accounts: Array.isArray(parsed.accounts) ? parsed.accounts : structuredClone(DEFAULT_ACCOUNTS),
+        accountSettings: parsed.accountSettings || {},
         meta: parsed.meta || {}
       };
     }
@@ -794,6 +943,9 @@ function loadState() {
     meals: structuredClone(defaultMeals),
     weeks: {},
     activeWeek: currentWeekString(),
+    activeAccountId: DEFAULT_ACCOUNTS[0].id,
+    accounts: structuredClone(DEFAULT_ACCOUNTS),
+    accountSettings: {},
     meta: {}
   };
 }
@@ -922,12 +1074,22 @@ function applyRemoteState(remoteState) {
 
   state.meals = merged.meals;
   state.weeks = merged.weeks;
+  state.accounts = merged.accounts;
+  state.accountSettings = merged.accountSettings;
   state.meta = merged.meta;
   state.activeWeek = state.activeWeek || currentWeekString();
+  if (!state.activeAccountId || !state.accounts.some((account) => account.id === state.activeAccountId)) {
+    state.activeAccountId = state.accounts[0]?.id || DEFAULT_ACCOUNTS[0].id;
+  }
 
+  ensureAccounts();
+  ensureMealOwners();
+  migrateLegacyWeekKeys(state);
   ensureWeek(state.activeWeek);
   Object.values(state.weeks).forEach((week) => normalizeWeekData(week));
   ensureStateMeta(state);
+  renderAccountPicker();
+  showSharedMeals.checked = getAccountSettings().allowSharedMeals;
   weekPicker.value = state.activeWeek;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
@@ -938,6 +1100,8 @@ function getSerializableState() {
   return {
     meals: state.meals,
     weeks: state.weeks,
+    accounts: state.accounts,
+    accountSettings: state.accountSettings,
     meta: state.meta
   };
 }
@@ -946,22 +1110,31 @@ function ensureStateMeta(targetState) {
   if (!targetState.meta || typeof targetState.meta !== "object") {
     targetState.meta = {};
   }
-  if (!Number.isFinite(targetState.meta.mealsUpdatedAt)) {
-    targetState.meta.mealsUpdatedAt = 0;
+  if (!targetState.meta.mealsUpdatedAt || typeof targetState.meta.mealsUpdatedAt !== "object") {
+    targetState.meta.mealsUpdatedAt = {};
   }
   if (!targetState.meta.weeksUpdatedAt || typeof targetState.meta.weeksUpdatedAt !== "object") {
     targetState.meta.weeksUpdatedAt = {};
   }
+  if (!targetState.meta.accountSettingsUpdatedAt || typeof targetState.meta.accountSettingsUpdatedAt !== "object") {
+    targetState.meta.accountSettingsUpdatedAt = {};
+  }
 }
 
-function markMealsUpdated() {
+function markMealsUpdated(accountId = state.activeAccountId) {
   ensureStateMeta(state);
-  state.meta.mealsUpdatedAt = Date.now();
+  state.meta.mealsUpdatedAt[accountId] = Date.now();
 }
 
 function markWeekUpdated(weekKey) {
   ensureStateMeta(state);
-  state.meta.weeksUpdatedAt[weekKey] = Date.now();
+  const key = weekKey.includes("::") ? weekKey : getScopedWeekKey(weekKey);
+  state.meta.weeksUpdatedAt[key] = Date.now();
+}
+
+function markAccountSettingsUpdated(accountId = state.activeAccountId) {
+  ensureStateMeta(state);
+  state.meta.accountSettingsUpdatedAt[accountId] = Date.now();
 }
 
 function mergeStates(localState, remoteStateRaw) {
@@ -969,14 +1142,44 @@ function mergeStates(localState, remoteStateRaw) {
   const remote = {
     meals: Array.isArray(remoteStateRaw?.meals) ? remoteStateRaw.meals : structuredClone(defaultMeals),
     weeks: remoteStateRaw?.weeks && typeof remoteStateRaw.weeks === "object" ? remoteStateRaw.weeks : {},
+    accounts: Array.isArray(remoteStateRaw?.accounts) ? remoteStateRaw.accounts : structuredClone(DEFAULT_ACCOUNTS),
+    accountSettings: remoteStateRaw?.accountSettings && typeof remoteStateRaw.accountSettings === "object"
+      ? remoteStateRaw.accountSettings
+      : {},
     meta: remoteStateRaw?.meta || {}
   };
+
+  if (!Array.isArray(local.accounts)) {
+    local.accounts = structuredClone(DEFAULT_ACCOUNTS);
+  }
+  if (!local.accountSettings || typeof local.accountSettings !== "object") {
+    local.accountSettings = {};
+  }
 
   ensureStateMeta(local);
   ensureStateMeta(remote);
 
-  const useRemoteMeals = remote.meta.mealsUpdatedAt >= local.meta.mealsUpdatedAt;
-  const mergedMeals = useRemoteMeals ? remote.meals : local.meals;
+  const accountIds = new Set([
+    ...local.accounts.map((account) => account.id),
+    ...remote.accounts.map((account) => account.id),
+    ...DEFAULT_ACCOUNTS.map((account) => account.id)
+  ]);
+  const mergedAccounts = [];
+  accountIds.forEach((accountId) => {
+    const fromLocal = local.accounts.find((account) => account.id === accountId);
+    const fromRemote = remote.accounts.find((account) => account.id === accountId);
+    mergedAccounts.push(fromRemote || fromLocal || DEFAULT_ACCOUNTS.find((account) => account.id === accountId));
+  });
+
+  const mergedMeals = [];
+  accountIds.forEach((accountId) => {
+    const localTs = Number(local.meta.mealsUpdatedAt?.[accountId] || 0);
+    const remoteTs = Number(remote.meta.mealsUpdatedAt?.[accountId] || 0);
+    const sourceMeals = remoteTs >= localTs ? remote.meals : local.meals;
+    sourceMeals
+      .filter((meal) => meal.ownerAccountId === accountId)
+      .forEach((meal) => mergedMeals.push(meal));
+  });
 
   const allWeekKeys = new Set([
     ...Object.keys(local.weeks || {}),
@@ -1002,10 +1205,31 @@ function mergeStates(localState, remoteStateRaw) {
     mergedWeeks[weekKey] = remoteTs >= localTs ? remoteWeek : localWeek;
   });
 
+  const mergedAccountSettings = {};
+  accountIds.forEach((accountId) => {
+    const localTs = Number(local.meta.accountSettingsUpdatedAt?.[accountId] || 0);
+    const remoteTs = Number(remote.meta.accountSettingsUpdatedAt?.[accountId] || 0);
+    mergedAccountSettings[accountId] = remoteTs >= localTs
+      ? (remote.accountSettings?.[accountId] || { allowSharedMeals: false })
+      : (local.accountSettings?.[accountId] || { allowSharedMeals: false });
+  });
+
   const mergedMeta = {
-    mealsUpdatedAt: Math.max(Number(local.meta.mealsUpdatedAt || 0), Number(remote.meta.mealsUpdatedAt || 0)),
-    weeksUpdatedAt: {}
+    mealsUpdatedAt: {},
+    weeksUpdatedAt: {},
+    accountSettingsUpdatedAt: {}
   };
+
+  accountIds.forEach((accountId) => {
+    mergedMeta.mealsUpdatedAt[accountId] = Math.max(
+      Number(local.meta.mealsUpdatedAt?.[accountId] || 0),
+      Number(remote.meta.mealsUpdatedAt?.[accountId] || 0)
+    );
+    mergedMeta.accountSettingsUpdatedAt[accountId] = Math.max(
+      Number(local.meta.accountSettingsUpdatedAt?.[accountId] || 0),
+      Number(remote.meta.accountSettingsUpdatedAt?.[accountId] || 0)
+    );
+  });
 
   allWeekKeys.forEach((weekKey) => {
     mergedMeta.weeksUpdatedAt[weekKey] = Math.max(
@@ -1017,6 +1241,8 @@ function mergeStates(localState, remoteStateRaw) {
   return {
     meals: mergedMeals,
     weeks: mergedWeeks,
+    accounts: mergedAccounts,
+    accountSettings: mergedAccountSettings,
     meta: mergedMeta
   };
 }
