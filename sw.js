@@ -2,6 +2,7 @@ const CACHE_NAME = "food-planner-v1";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./config.js",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",

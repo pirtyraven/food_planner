@@ -40,6 +40,11 @@ PWA-filer som ingår:
 
 ## Gemensam synk (Supabase)
 Appen är konfigurerad för Supabase-projektet `fpjxossedqvcetgoppwg` och delar data via `family_id` = `per-familj`.
+Synk sker via både realtime (Supabase channel) och periodisk fallback-polling.
+
+Konfiguration ligger i:
+- `config.js`
+- `config.example.js` (mall)
 
 Kör detta en gång i Supabase SQL Editor:
 
@@ -64,7 +69,8 @@ with check (id = 'per-familj');
 När tabellen/policyn finns:
 - Publicera filerna (t.ex. GitHub Pages).
 - Öppna samma URL på båda enheterna.
-- Ändringar synkas automatiskt (sparas direkt och hämtas periodiskt).
+- Ändringar synkas automatiskt (realtime + periodisk fallback).
+- Vid samtidiga ändringar används en enkel merge-strategi per veckodata/rättlista istället för att skriva över hela state blint.
 
 ## Rullande schema
 - Varje vecka får automatiskt en slumpad standardkombination.

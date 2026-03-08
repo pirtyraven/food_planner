@@ -1,0 +1,8 @@
+window.APP_CONFIG = {
+  SUPABASE_URL: "https://fpjxossedqvcetgoppwg.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwanhvc3NlZHF2Y2V0Z29wcHdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyOTMxNDEsImV4cCI6MjA4Nzg2OTE0MX0.Y6lAJeuXgkWBSVXd5OXBp3LYOFsMYso9J4H4pk_2MvI",
+  FAMILY_PLAN_ID: "per-familj",
+  REMOTE_TABLE: "family_plans",
+  REMOTE_POLL_MS: 15000,
+  REMOTE_SAVE_DEBOUNCE_MS: 600
+};

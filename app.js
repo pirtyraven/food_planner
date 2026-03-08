@@ -2,12 +2,13 @@ const STORAGE_KEY = "meal-planner-v3";
 const MAX_WEEK_MEALS = 4;
 const NEVER_USED_AGE_BONUS = 200;
 const AGE_WEIGHT_POWER = 1.8;
-const SUPABASE_URL = "https://fpjxossedqvcetgoppwg.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwanhvc3NlZHF2Y2V0Z29wcHdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyOTMxNDEsImV4cCI6MjA4Nzg2OTE0MX0.Y6lAJeuXgkWBSVXd5OXBp3LYOFsMYso9J4H4pk_2MvI";
-const FAMILY_PLAN_ID = "per-familj";
-const REMOTE_TABLE = "family_plans";
-const REMOTE_POLL_MS = 15000;
-const REMOTE_SAVE_DEBOUNCE_MS = 600;
+const APP_CONFIG = window.APP_CONFIG || {};
+const SUPABASE_URL = APP_CONFIG.SUPABASE_URL || "https://fpjxossedqvcetgoppwg.supabase.co";
+const SUPABASE_ANON_KEY = APP_CONFIG.SUPABASE_ANON_KEY || "";
+const FAMILY_PLAN_ID = APP_CONFIG.FAMILY_PLAN_ID || "per-familj";
+const REMOTE_TABLE = APP_CONFIG.REMOTE_TABLE || "family_plans";
+const REMOTE_POLL_MS = APP_CONFIG.REMOTE_POLL_MS || 15000;
+const REMOTE_SAVE_DEBOUNCE_MS = APP_CONFIG.REMOTE_SAVE_DEBOUNCE_MS || 600;
 
 const defaultMealDefinitions = [
   { name: "Spaghetti bolognese", ingredients: ["spaghetti", "nötfärs", "tomatkross", "gul lök", "vitlök"] },
@@ -45,6 +46,7 @@ let remoteSaveTimer = null;
 let lastRemoteUpdatedAt = null;
 let isApplyingRemoteState = false;
 let remotePollTimer = null;
+let remoteChannel = null;
 let openAddSlotIndex = null;
 let openAddSearchQuery = "";
 
@@ -78,6 +80,7 @@ function init() {
     state.activeWeek = weekPicker.value;
   }
 
+  ensureStateMeta(state);
   ensureWeek(state.activeWeek);
   Object.values(state.weeks).forEach((week) => normalizeWeekData(week));
 
@@ -91,7 +94,7 @@ function registerEvents() {
   weekPicker.addEventListener("change", () => {
     state.activeWeek = weekPicker.value;
     ensureWeek(state.activeWeek);
-    saveState();
+    saveState({ syncRemote: false });
     render();
   });
 
@@ -120,6 +123,7 @@ function registerEvents() {
       name,
       ingredients
     });
+    markMealsUpdated();
 
     mealName.value = "";
     mealIngredients.value = "";
@@ -130,6 +134,7 @@ function registerEvents() {
   clearWeekBtn.addEventListener("click", () => {
     ensureWeek(state.activeWeek);
     state.weeks[state.activeWeek].mealIds = [];
+    markWeekUpdated(state.activeWeek);
     saveState();
     render();
   });
@@ -423,6 +428,7 @@ function setMealSelection(mealId, shouldBeSelected) {
     week.mealIds.splice(i, 1);
   }
 
+  markWeekUpdated(state.activeWeek);
   saveState();
   render();
   return true;
@@ -444,6 +450,8 @@ function deleteMeal(mealId) {
     week.mealIds = week.mealIds.filter((id) => id !== mealId);
     week.defaultMealIds = week.defaultMealIds.filter((id) => id !== mealId);
   });
+  markMealsUpdated();
+  Object.keys(state.weeks).forEach((weekKey) => markWeekUpdated(weekKey));
   saveState();
   render();
 }
@@ -453,6 +461,7 @@ function resetWeekToDefaultRotation(weekKey) {
   const fullDefault = buildCompleteDefaultMenu(weekKey, state.weeks[weekKey].defaultMealIds);
   state.weeks[weekKey].defaultMealIds = fullDefault;
   state.weeks[weekKey].mealIds = [...fullDefault];
+  markWeekUpdated(weekKey);
   saveState();
   render();
 }
@@ -462,6 +471,7 @@ function randomizeWeekMenu(weekKey) {
   const availableIds = state.meals.map((meal) => meal.id);
   if (availableIds.length === 0) {
     state.weeks[weekKey].mealIds = [];
+    markWeekUpdated(weekKey);
     saveState();
     render();
     return;
@@ -480,6 +490,7 @@ function randomizeWeekMenu(weekKey) {
   }
 
   state.weeks[weekKey].mealIds = nextIds;
+  markWeekUpdated(weekKey);
   saveState();
   render();
 }
@@ -544,6 +555,7 @@ function addCustomIngredient(rawName) {
     week.ingredientEdits.added.push(ingredient);
   }
 
+  markWeekUpdated(state.activeWeek);
   saveState();
   render();
 }
@@ -568,6 +580,7 @@ function removeIngredientForWeek(ingredient) {
     week.checkedIngredients = week.checkedIngredients.filter((x) => x !== ingredient);
   }
 
+  markWeekUpdated(state.activeWeek);
   saveState();
   render();
 }
@@ -576,6 +589,7 @@ function resetIngredientsForWeek(weekKey) {
   ensureWeek(weekKey);
   state.weeks[weekKey].ingredientEdits = { added: [], removed: [] };
   state.weeks[weekKey].checkedIngredients = [];
+  markWeekUpdated(weekKey);
   saveState();
   render();
 }
@@ -593,6 +607,7 @@ function setIngredientCheckedForWeek(ingredient, checked) {
     week.checkedIngredients.splice(i, 1);
   }
 
+  markWeekUpdated(state.activeWeek);
   saveState();
   render();
 }
@@ -767,7 +782,8 @@ function loadState() {
       return {
         meals: Array.isArray(parsed.meals) ? parsed.meals : structuredClone(defaultMeals),
         weeks: parsed.weeks || {},
-        activeWeek: parsed.activeWeek || currentWeekString()
+        activeWeek: parsed.activeWeek || currentWeekString(),
+        meta: parsed.meta || {}
       };
     }
   } catch {
@@ -777,13 +793,16 @@ function loadState() {
   return {
     meals: structuredClone(defaultMeals),
     weeks: {},
-    activeWeek: currentWeekString()
+    activeWeek: currentWeekString(),
+    meta: {}
   };
 }
 
-function saveState() {
+function saveState({ syncRemote = true } = {}) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  scheduleRemoteSave();
+  if (syncRemote) {
+    scheduleRemoteSave();
+  }
 }
 
 function startRemoteSync() {
@@ -799,6 +818,25 @@ function startRemoteSync() {
   remotePollTimer = setInterval(() => {
     void fetchRemoteState({ force: false, renderAfter: true });
   }, REMOTE_POLL_MS);
+
+  if (remoteChannel && typeof supabaseClient.removeChannel === "function") {
+    void supabaseClient.removeChannel(remoteChannel);
+  }
+
+  remoteChannel = supabaseClient
+    .channel(`family-plan-${FAMILY_PLAN_ID}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: REMOTE_TABLE, filter: `id=eq.${FAMILY_PLAN_ID}` },
+      (payload) => {
+        const incomingTs = Date.parse(payload?.new?.updated_at || "");
+        const currentTs = Date.parse(lastRemoteUpdatedAt || "");
+        if (!lastRemoteUpdatedAt || (Number.isFinite(incomingTs) && incomingTs > currentTs)) {
+          void fetchRemoteState({ force: true, renderAfter: true });
+        }
+      }
+    )
+    .subscribe();
 }
 
 function scheduleRemoteSave() {
@@ -880,13 +918,16 @@ async function fetchRemoteState({ force, renderAfter }) {
 
 function applyRemoteState(remoteState) {
   isApplyingRemoteState = true;
+  const merged = mergeStates(state, remoteState);
 
-  state.meals = Array.isArray(remoteState.meals) ? remoteState.meals : structuredClone(defaultMeals);
-  state.weeks = remoteState.weeks && typeof remoteState.weeks === "object" ? remoteState.weeks : {};
-  state.activeWeek = typeof remoteState.activeWeek === "string" ? remoteState.activeWeek : currentWeekString();
+  state.meals = merged.meals;
+  state.weeks = merged.weeks;
+  state.meta = merged.meta;
+  state.activeWeek = state.activeWeek || currentWeekString();
 
   ensureWeek(state.activeWeek);
   Object.values(state.weeks).forEach((week) => normalizeWeekData(week));
+  ensureStateMeta(state);
   weekPicker.value = state.activeWeek;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
@@ -897,7 +938,86 @@ function getSerializableState() {
   return {
     meals: state.meals,
     weeks: state.weeks,
-    activeWeek: state.activeWeek
+    meta: state.meta
+  };
+}
+
+function ensureStateMeta(targetState) {
+  if (!targetState.meta || typeof targetState.meta !== "object") {
+    targetState.meta = {};
+  }
+  if (!Number.isFinite(targetState.meta.mealsUpdatedAt)) {
+    targetState.meta.mealsUpdatedAt = 0;
+  }
+  if (!targetState.meta.weeksUpdatedAt || typeof targetState.meta.weeksUpdatedAt !== "object") {
+    targetState.meta.weeksUpdatedAt = {};
+  }
+}
+
+function markMealsUpdated() {
+  ensureStateMeta(state);
+  state.meta.mealsUpdatedAt = Date.now();
+}
+
+function markWeekUpdated(weekKey) {
+  ensureStateMeta(state);
+  state.meta.weeksUpdatedAt[weekKey] = Date.now();
+}
+
+function mergeStates(localState, remoteStateRaw) {
+  const local = structuredClone(localState);
+  const remote = {
+    meals: Array.isArray(remoteStateRaw?.meals) ? remoteStateRaw.meals : structuredClone(defaultMeals),
+    weeks: remoteStateRaw?.weeks && typeof remoteStateRaw.weeks === "object" ? remoteStateRaw.weeks : {},
+    meta: remoteStateRaw?.meta || {}
+  };
+
+  ensureStateMeta(local);
+  ensureStateMeta(remote);
+
+  const useRemoteMeals = remote.meta.mealsUpdatedAt >= local.meta.mealsUpdatedAt;
+  const mergedMeals = useRemoteMeals ? remote.meals : local.meals;
+
+  const allWeekKeys = new Set([
+    ...Object.keys(local.weeks || {}),
+    ...Object.keys(remote.weeks || {})
+  ]);
+  const mergedWeeks = {};
+
+  allWeekKeys.forEach((weekKey) => {
+    const localWeek = local.weeks?.[weekKey];
+    const remoteWeek = remote.weeks?.[weekKey];
+
+    if (!localWeek) {
+      mergedWeeks[weekKey] = remoteWeek;
+      return;
+    }
+    if (!remoteWeek) {
+      mergedWeeks[weekKey] = localWeek;
+      return;
+    }
+
+    const localTs = Number(local.meta.weeksUpdatedAt?.[weekKey] || 0);
+    const remoteTs = Number(remote.meta.weeksUpdatedAt?.[weekKey] || 0);
+    mergedWeeks[weekKey] = remoteTs >= localTs ? remoteWeek : localWeek;
+  });
+
+  const mergedMeta = {
+    mealsUpdatedAt: Math.max(Number(local.meta.mealsUpdatedAt || 0), Number(remote.meta.mealsUpdatedAt || 0)),
+    weeksUpdatedAt: {}
+  };
+
+  allWeekKeys.forEach((weekKey) => {
+    mergedMeta.weeksUpdatedAt[weekKey] = Math.max(
+      Number(local.meta.weeksUpdatedAt?.[weekKey] || 0),
+      Number(remote.meta.weeksUpdatedAt?.[weekKey] || 0)
+    );
+  });
+
+  return {
+    meals: mergedMeals,
+    weeks: mergedWeeks,
+    meta: mergedMeta
   };
 }
 
