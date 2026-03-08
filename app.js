@@ -281,31 +281,44 @@ function renderSelectedMeals() {
       search.className = "slot-search";
       search.placeholder = "Sök maträtt";
       search.value = openAddSearchQuery;
-      search.addEventListener("input", () => {
-        openAddSearchQuery = search.value.trim().toLowerCase();
-        renderSelectedMeals();
-      });
-
-      const query = openAddSearchQuery.trim().toLowerCase();
-      const filtered = query
-        ? availableMeals.filter((meal) => meal.name.toLowerCase().includes(query))
-        : availableMeals;
 
       const options = document.createElement("div");
       options.className = "slot-options";
 
-      filtered.forEach((meal) => {
-        const optionBtn = document.createElement("button");
-        optionBtn.type = "button";
-        optionBtn.className = "slot-option-btn";
-        optionBtn.textContent = meal.name;
-        optionBtn.addEventListener("click", () => {
-          openAddSlotIndex = null;
-          openAddSearchQuery = "";
-          setMealSelection(meal.id, true);
+      const renderSlotOptions = () => {
+        options.innerHTML = "";
+        const query = openAddSearchQuery.trim().toLowerCase();
+        const filtered = query
+          ? availableMeals.filter((meal) => meal.name.toLowerCase().includes(query))
+          : availableMeals;
+
+        if (filtered.length === 0) {
+          const empty = document.createElement("small");
+          empty.className = "slot-empty";
+          empty.textContent = "Inga träffar";
+          options.append(empty);
+          return;
+        }
+
+        filtered.forEach((meal) => {
+          const optionBtn = document.createElement("button");
+          optionBtn.type = "button";
+          optionBtn.className = "slot-option-btn";
+          optionBtn.textContent = meal.name;
+          optionBtn.addEventListener("click", () => {
+            openAddSlotIndex = null;
+            openAddSearchQuery = "";
+            setMealSelection(meal.id, true);
+          });
+          options.append(optionBtn);
         });
-        options.append(optionBtn);
+      };
+
+      search.addEventListener("input", () => {
+        openAddSearchQuery = search.value.trim().toLowerCase();
+        renderSlotOptions();
       });
+      renderSlotOptions();
 
       const actions = document.createElement("div");
       actions.className = "meal-actions";

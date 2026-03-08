@@ -235,6 +235,10 @@ select {
   overflow: auto;
 }
 
+.slot-empty {
+  color: var(--muted);
+}
+
 .slot-option-btn {
   border: 1px solid var(--line);
   background: #fff;
