@@ -146,7 +146,7 @@ function registerEvents() {
       .map((x) => x.trim().toLowerCase())
       .filter(Boolean);
 
-    if (!name || ingredients.length === 0) {
+    if (!name) {
       return;
     }
 
@@ -267,14 +267,17 @@ function renderMeals() {
 
 function openIngredientsPopup(meal) {
   ingredientsDialogTitle.textContent = `Ingredienser: ${meal.name}`;
-  ingredientsDialogContent.textContent = meal.ingredients.join(", ");
+  const ingredientText = Array.isArray(meal.ingredients) && meal.ingredients.length > 0
+    ? meal.ingredients.join(", ")
+    : "Inga ingredienser angivna.";
+  ingredientsDialogContent.textContent = ingredientText;
 
   if (typeof ingredientsDialog.showModal === "function") {
     ingredientsDialog.showModal();
     return;
   }
 
-  alert(`${meal.name}\n\n${meal.ingredients.join(", ")}`);
+  alert(`${meal.name}\n\n${ingredientText}`);
 }
 
 function renderSelectedMeals() {
