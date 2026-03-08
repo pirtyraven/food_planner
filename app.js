@@ -46,6 +46,7 @@ let lastRemoteUpdatedAt = null;
 let isApplyingRemoteState = false;
 let remotePollTimer = null;
 let openAddSlotIndex = null;
+let openAddSearchQuery = "";
 
 const state = loadState();
 
@@ -272,47 +273,56 @@ function renderSelectedMeals() {
     li.className = "add-slot-item";
 
     if (openAddSlotIndex === slotIndex) {
-      const select = document.createElement("select");
-      select.className = "slot-select";
+      const panel = document.createElement("div");
+      panel.className = "slot-picker";
 
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "Välj rätt";
-      select.appendChild(placeholder);
+      const search = document.createElement("input");
+      search.type = "search";
+      search.className = "slot-search";
+      search.placeholder = "Sök maträtt";
+      search.value = openAddSearchQuery;
+      search.addEventListener("input", () => {
+        openAddSearchQuery = search.value.trim().toLowerCase();
+        renderSelectedMeals();
+      });
 
-      availableMeals.forEach((meal) => {
-        const option = document.createElement("option");
-        option.value = meal.id;
-        option.textContent = meal.name;
-        select.appendChild(option);
+      const query = openAddSearchQuery.trim().toLowerCase();
+      const filtered = query
+        ? availableMeals.filter((meal) => meal.name.toLowerCase().includes(query))
+        : availableMeals;
+
+      const options = document.createElement("div");
+      options.className = "slot-options";
+
+      filtered.forEach((meal) => {
+        const optionBtn = document.createElement("button");
+        optionBtn.type = "button";
+        optionBtn.className = "slot-option-btn";
+        optionBtn.textContent = meal.name;
+        optionBtn.addEventListener("click", () => {
+          openAddSlotIndex = null;
+          openAddSearchQuery = "";
+          setMealSelection(meal.id, true);
+        });
+        options.append(optionBtn);
       });
 
       const actions = document.createElement("div");
       actions.className = "meal-actions";
 
-      const addBtn = document.createElement("button");
-      addBtn.type = "button";
-      addBtn.className = "btn mini";
-      addBtn.textContent = "Lägg till";
-      addBtn.addEventListener("click", () => {
-        if (!select.value) {
-          return;
-        }
-        openAddSlotIndex = null;
-        setMealSelection(select.value, true);
-      });
-
       const cancelBtn = document.createElement("button");
       cancelBtn.type = "button";
       cancelBtn.className = "btn btn-secondary mini";
-      cancelBtn.textContent = "Avbryt";
+      cancelBtn.textContent = "Stäng";
       cancelBtn.addEventListener("click", () => {
         openAddSlotIndex = null;
+        openAddSearchQuery = "";
         renderSelectedMeals();
       });
 
-      actions.append(addBtn, cancelBtn);
-      li.append(select, actions);
+      actions.append(cancelBtn);
+      panel.append(search, options, actions);
+      li.append(panel);
     } else {
       const plusBtn = document.createElement("button");
       plusBtn.type = "button";
@@ -320,6 +330,7 @@ function renderSelectedMeals() {
       plusBtn.textContent = "+ Lägg till rätt";
       plusBtn.addEventListener("click", () => {
         openAddSlotIndex = slotIndex;
+        openAddSearchQuery = "";
         renderSelectedMeals();
       });
 

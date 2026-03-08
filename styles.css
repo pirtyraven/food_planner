@@ -218,6 +218,36 @@ select {
   min-width: 170px;
 }
 
+.slot-picker {
+  width: 100%;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.slot-search {
+  width: 100%;
+}
+
+.slot-options {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 190px;
+  overflow: auto;
+}
+
+.slot-option-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slot-option-btn:hover {
+  background: #f5f3ee;
+}
+
 .meal-pool {
   grid-column: span 3;
 }
