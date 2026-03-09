@@ -36,12 +36,6 @@
         <label for="weekPicker">Välj vecka</label>
         <input id="weekPicker" type="week" />
       </div>
-      <h3>Lägg till maträtt</h3>
-      <form id="mealForm" class="inline-form">
-        <input id="mealName" type="text" placeholder="Ny maträtt" required />
-        <input id="mealIngredients" type="text" placeholder="Ingredienser, separera med kommatecken (valfritt)" />
-        <button type="submit" class="btn">Lägg till</button>
-      </form>
     </section>
 
     <section class="card rotation">
@@ -66,6 +60,12 @@
 
     <section class="card meal-pool">
       <h2>Maträtter</h2>
+      <h3>Lägg till maträtt</h3>
+      <form id="mealForm" class="inline-form">
+        <input id="mealName" type="text" placeholder="Ny maträtt" required />
+        <input id="mealIngredients" type="text" placeholder="Ingredienser, separera med kommatecken (valfritt)" />
+        <button type="submit" class="btn">Lägg till</button>
+      </form>
       <p class="hint">Checka i/ur rätter för veckan.</p>
       <ul id="mealList" class="list"></ul>
     </section>
