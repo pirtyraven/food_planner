@@ -8,7 +8,7 @@ En enkel dashboard för familjens veckoplanering av mat.
 - Valbar åtkomst till andra kontons rätter via toggle
 - Välj vecka (`YYYY-Www`)
 - Lägg till nya maträtter i veckokortet (namn + ingredienser)
-- Välj exakt 4 rätter för veckan
+- Välj 1-10 rätter för veckan (förvalt 5)
 - Automatisk inköpslista baserat på ingredienser
 - Lägg till/radera maträtter
 - Klickbar `ingredienser`-text per maträtt som öppnar popup med detaljer

@@ -1,5 +1,7 @@
 const STORAGE_KEY = "meal-planner-v3";
-const MAX_WEEK_MEALS = 4;
+const DEFAULT_WEEK_MEALS = 5;
+const MIN_WEEK_MEALS = 1;
+const MAX_WEEK_MEALS = 10;
 const NEVER_USED_AGE_BONUS = 200;
 const AGE_WEIGHT_POWER = 1.8;
 const APP_CONFIG = window.APP_CONFIG || {};
@@ -69,11 +71,15 @@ const mealName = document.getElementById("mealName");
 const mealIngredients = document.getElementById("mealIngredients");
 const mealList = document.getElementById("mealList");
 const selectedList = document.getElementById("selectedList");
+const selectedMealsTitle = document.getElementById("selectedMealsTitle");
 const ingredientForm = document.getElementById("ingredientForm");
 const ingredientName = document.getElementById("ingredientName");
 const resetIngredientsBtn = document.getElementById("resetIngredients");
 const shoppingList = document.getElementById("shoppingList");
 const selectedCount = document.getElementById("selectedCount");
+const mealTargetValue = document.getElementById("mealTargetValue");
+const decreaseMealTargetBtn = document.getElementById("decreaseMealTarget");
+const increaseMealTargetBtn = document.getElementById("increaseMealTarget");
 const clearWeekBtn = document.getElementById("clearWeek");
 const ingredientsDialog = document.getElementById("ingredientsDialog");
 const ingredientsDialogTitle = document.getElementById("ingredientsDialogTitle");
@@ -139,6 +145,14 @@ function registerEvents() {
     randomizeWeekMenu(state.activeWeek);
   });
 
+  decreaseMealTargetBtn.addEventListener("click", () => {
+    updateMealTarget(state.activeWeek, getWeek(state.activeWeek).mealTarget - 1);
+  });
+
+  increaseMealTargetBtn.addEventListener("click", () => {
+    updateMealTarget(state.activeWeek, getWeek(state.activeWeek).mealTarget + 1);
+  });
+
   mealForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const name = mealName.value.trim();
@@ -196,7 +210,12 @@ function render() {
   renderMeals();
   renderSelectedMeals();
   renderShoppingList();
-  selectedCount.textContent = `${getWeek(state.activeWeek).mealIds.length} / ${MAX_WEEK_MEALS} valda`;
+  const week = getWeek(state.activeWeek);
+  selectedMealsTitle.textContent = `Veckans ${week.mealTarget} rätter`;
+  mealTargetValue.textContent = `${week.mealTarget} rätter`;
+  decreaseMealTargetBtn.disabled = week.mealTarget <= MIN_WEEK_MEALS;
+  increaseMealTargetBtn.disabled = week.mealTarget >= MAX_WEEK_MEALS;
+  selectedCount.textContent = `${week.mealIds.length} / ${week.mealTarget} valda`;
 }
 
 function renderRotationStatus() {
@@ -319,7 +338,7 @@ function renderSelectedMeals() {
     selectedList.appendChild(li);
   });
 
-  const slotsLeft = MAX_WEEK_MEALS - mealIds.length;
+  const slotsLeft = week.mealTarget - mealIds.length;
   for (let i = 0; i < slotsLeft; i += 1) {
     const slotIndex = mealIds.length + i;
     const li = document.createElement("li");
@@ -466,8 +485,8 @@ function setMealSelection(mealId, shouldBeSelected) {
       return true;
     }
 
-    if (week.mealIds.length >= MAX_WEEK_MEALS) {
-      alert("Max 4 rätter per vecka.");
+    if (week.mealIds.length >= week.mealTarget) {
+      alert(`Max ${week.mealTarget} rätter för den här veckan.`);
       return false;
     }
 
@@ -520,16 +539,17 @@ function resetWeekToDefaultRotation(weekKey) {
 function randomizeWeekMenu(weekKey) {
   ensureWeek(weekKey);
   const availableIds = getVisibleMealsForAccount().map((meal) => meal.id);
+  const week = getWeek(weekKey);
   if (availableIds.length === 0) {
-    getWeek(weekKey).mealIds = [];
+    week.mealIds = [];
     markWeekUpdated(weekKey);
     saveState();
     render();
     return;
   }
 
-  const targetCount = Math.min(MAX_WEEK_MEALS, availableIds.length);
-  const currentKey = getWeek(weekKey).mealIds.slice().sort().join("|");
+  const targetCount = Math.min(week.mealTarget, availableIds.length);
+  const currentKey = week.mealIds.slice().sort().join("|");
   let nextIds = [];
 
   for (let i = 0; i < 8; i += 1) {
@@ -540,7 +560,7 @@ function randomizeWeekMenu(weekKey) {
     }
   }
 
-  getWeek(weekKey).mealIds = nextIds;
+  week.mealIds = nextIds;
   markWeekUpdated(weekKey);
   saveState();
   render();
@@ -669,6 +689,7 @@ function ensureWeek(weekKey) {
   if (!state.weeks[scopedKey]) {
     const defaultMealIds = generateWeightedDefaultMealsForWeek(weekKey);
     state.weeks[scopedKey] = {
+      mealTarget: DEFAULT_WEEK_MEALS,
       mealIds: [...defaultMealIds],
       defaultMealIds,
       ingredientEdits: { added: [], removed: [] },
@@ -678,7 +699,7 @@ function ensureWeek(weekKey) {
   }
   normalizeWeekData(state.weeks[scopedKey]);
   state.weeks[scopedKey].defaultMealIds = buildCompleteDefaultMenu(weekKey, state.weeks[scopedKey].defaultMealIds);
-  state.weeks[scopedKey].mealIds = sanitizeMealIdList(state.weeks[scopedKey].mealIds);
+  state.weeks[scopedKey].mealIds = sanitizeMealIdList(state.weeks[scopedKey].mealIds, state.weeks[scopedKey].mealTarget);
 }
 
 function getScopedWeekKey(weekKey, accountId = state.activeAccountId) {
@@ -690,6 +711,7 @@ function getWeek(weekKey) {
 }
 
 function normalizeWeekData(week) {
+  week.mealTarget = clampMealTarget(week.mealTarget);
   if (!Array.isArray(week.mealIds)) {
     week.mealIds = [];
   }
@@ -708,12 +730,15 @@ function normalizeWeekData(week) {
   if (!Array.isArray(week.ingredientEdits.removed)) {
     week.ingredientEdits.removed = [];
   }
+  week.mealIds = sanitizeMealIdList(week.mealIds, week.mealTarget);
+  week.defaultMealIds = sanitizeMealIdList(week.defaultMealIds, week.mealTarget);
 }
 
 function generateWeightedDefaultMealsForWeek(weekKey) {
   const currentWeekSerial = weekKeyToSerial(weekKey);
   const candidateIds = getPlanningCandidateMeals().map((meal) => meal.id);
-  if (candidateIds.length <= MAX_WEEK_MEALS) {
+  const targetCount = Math.min(getWeek(weekKey)?.mealTarget || DEFAULT_WEEK_MEALS, candidateIds.length);
+  if (candidateIds.length <= targetCount) {
     return [...candidateIds];
   }
 
@@ -721,7 +746,7 @@ function generateWeightedDefaultMealsForWeek(weekKey) {
   const selected = [];
   const remaining = [...candidateIds];
 
-  while (selected.length < MAX_WEEK_MEALS && remaining.length > 0) {
+  while (selected.length < targetCount && remaining.length > 0) {
     const weighted = remaining.map((mealId) => {
       const lastUsedSerial = lastUsedSerialByMealId.get(mealId);
       const age = Number.isInteger(lastUsedSerial)
@@ -744,7 +769,7 @@ function generateWeightedDefaultMealsForWeek(weekKey) {
 
 function buildCompleteDefaultMenu(weekKey, baseMealIds) {
   const availableIds = getPlanningCandidateMeals().map((meal) => meal.id);
-  const targetCount = Math.min(MAX_WEEK_MEALS, availableIds.length);
+  const targetCount = Math.min(getWeek(weekKey)?.mealTarget || DEFAULT_WEEK_MEALS, availableIds.length);
   let result = sanitizeMealIdList(baseMealIds).slice(0, targetCount);
 
   if (result.length >= targetCount) {
@@ -831,12 +856,31 @@ function weekKeyToSerial(weekKey) {
   return (year * 100) + week;
 }
 
-function sanitizeMealIdList(mealIds) {
+function sanitizeMealIdList(mealIds, limit = MAX_WEEK_MEALS) {
   if (!Array.isArray(mealIds)) {
     return [];
   }
   const allowed = new Set(state.meals.map((meal) => meal.id));
-  return mealIds.filter((id, index) => allowed.has(id) && mealIds.indexOf(id) === index).slice(0, MAX_WEEK_MEALS);
+  return mealIds.filter((id, index) => allowed.has(id) && mealIds.indexOf(id) === index).slice(0, limit);
+}
+
+function clampMealTarget(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) {
+    return DEFAULT_WEEK_MEALS;
+  }
+  return Math.min(MAX_WEEK_MEALS, Math.max(MIN_WEEK_MEALS, parsed));
+}
+
+function updateMealTarget(weekKey, nextTarget) {
+  ensureWeek(weekKey);
+  const week = getWeek(weekKey);
+  week.mealTarget = clampMealTarget(nextTarget);
+  week.mealIds = sanitizeMealIdList(week.mealIds, week.mealTarget);
+  week.defaultMealIds = buildCompleteDefaultMenu(weekKey, week.defaultMealIds);
+  markWeekUpdated(weekKey);
+  saveState();
+  render();
 }
 
 function ensureAccounts() {

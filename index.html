@@ -16,7 +16,7 @@
 <body>
   <header class="topbar">
     <h1>Familjens matplanering</h1>
-    <p>Välj 4 rätter för veckan och få en inköpslista automatiskt.</p>
+    <p>Välj rätter för veckan och få en inköpslista automatiskt.</p>
   </header>
 
   <main class="grid">
@@ -49,11 +49,18 @@
     </section>
 
     <section class="card selected-meals">
-      <h2>Veckans 4 rätter</h2>
-      <p class="hint">Välj exakt 4 rätter för en komplett vecka.</p>
+      <h2 id="selectedMealsTitle">Veckans rätter</h2>
+      <p class="hint">Justera antal rätter för veckan mellan 1 och 10.</p>
+      <div class="row between meal-target-row">
+        <div class="meal-target-controls">
+          <button id="decreaseMealTarget" class="btn btn-secondary mini" type="button">-</button>
+          <span id="mealTargetValue">5 rätter</span>
+          <button id="increaseMealTarget" class="btn btn-secondary mini" type="button">+</button>
+        </div>
+      </div>
       <ul id="selectedList" class="list selected"></ul>
       <div class="row between">
-        <span id="selectedCount">0 / 4 valda</span>
+        <span id="selectedCount">0 / 5 valda</span>
         <button id="clearWeek" class="btn btn-secondary">Rensa vecka</button>
       </div>
     </section>
