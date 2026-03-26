@@ -11,7 +11,8 @@ const REMOTE_POLL_MS = APP_CONFIG.REMOTE_POLL_MS || 15000;
 const REMOTE_SAVE_DEBOUNCE_MS = APP_CONFIG.REMOTE_SAVE_DEBOUNCE_MS || 600;
 const DEFAULT_ACCOUNTS = [
   { id: "familjen-elisson", name: "Familjen Elisson" },
-  { id: "heidi-richard", name: "Heidi/Richard" }
+  { id: "heidi-richard", name: "Heidi/Richard" },
+  { id: "familjen-winther", name: "Familjen Winther" }
 ];
 
 const defaultMealDefinitions = [
