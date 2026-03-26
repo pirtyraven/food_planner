@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Matplanering" />
   <title>Veckoplanering Mat</title>
-  <link rel="manifest" href="manifest.webmanifest?v=20260308-accounts" />
-  <link rel="icon" href="icon-192.svg?v=20260308-accounts" />
-  <link rel="apple-touch-icon" href="icon-192.svg?v=20260308-accounts" />
-  <link rel="stylesheet" href="styles.css?v=20260308-accounts" />
+  <link rel="manifest" href="manifest.webmanifest?v=20260308-meal-target" />
+  <link rel="icon" href="icon-192.svg?v=20260308-meal-target" />
+  <link rel="apple-touch-icon" href="icon-192.svg?v=20260308-meal-target" />
+  <link rel="stylesheet" href="styles.css?v=20260308-meal-target" />
 </head>
 <body>
   <header class="topbar">
@@ -40,11 +40,8 @@
 
     <section class="card rotation">
       <h2>Rullande schema</h2>
-      <p class="hint">Varje vecka får en slumpad standardkombination som prioriterar rätter ni inte valt på länge.</p>
-      <p id="rotationStatus" class="rotation-status">Standard för veckan beräknas automatiskt.</p>
       <div class="row">
-        <button id="applyRotation" class="btn">Återställ till standard för veckan</button>
-        <button id="randomizeWeekMenu" class="btn btn-secondary">Slumpa en ny veckomeny</button>
+        <button id="randomizeWeekMenu" class="btn">Slumpa en ny veckomeny</button>
       </div>
     </section>
 
@@ -104,7 +101,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=20260308-accounts"></script>
-  <script src="app.js?v=20260308-accounts"></script>
+  <script src="config.js?v=20260308-meal-target"></script>
+  <script src="app.js?v=20260308-meal-target"></script>
 </body>
 </html>

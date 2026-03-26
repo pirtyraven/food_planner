@@ -7,7 +7,7 @@ En enkel dashboard för familjens veckoplanering av mat.
 - Konto-specifika rätter och veckoplaner
 - Valbar åtkomst till andra kontons rätter via toggle
 - Välj vecka (`YYYY-Www`)
-- Lägg till nya maträtter i veckokortet (namn + ingredienser)
+- Lägg till nya maträtter i maträttskortet (namn + ingredienser)
 - Välj 1-10 rätter för veckan (förvalt 5)
 - Automatisk inköpslista baserat på ingredienser
 - Lägg till/radera maträtter
@@ -75,11 +75,10 @@ När tabellen/policyn finns:
 - Ändringar synkas automatiskt (realtime + periodisk fallback).
 - Vid samtidiga ändringar används en enkel merge-strategi per veckodata/rättlista istället för att skriva över hela state blint.
 
-## Rullande schema
-- Varje vecka får automatiskt en slumpad standardkombination.
-- Slumpen viktas så att rätter som inte valts på länge har större chans att komma med.
+## Veckomeny
+- Du kan välja mellan 1 och 10 rätter per vecka.
+- `Slumpa en ny veckomeny` fyller veckan med så många rätter som veckans inställning kräver.
 - I `Maträtter` kan ni checka i/ur rätter för att anpassa veckan.
-- Knappen `Återställ till standard för veckan` återställer veckans val till standardkombinationen.
 
 ## Ingredienser
 - Inköpslistan skapas automatiskt från veckans valda rätter.

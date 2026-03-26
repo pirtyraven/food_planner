@@ -1,13 +1,13 @@
-const CACHE_NAME = "food-planner-v5";
+const CACHE_NAME = "food-planner-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./config.js?v=20260308-accounts",
-  "./styles.css?v=20260308-accounts",
-  "./app.js?v=20260308-accounts",
-  "./manifest.webmanifest?v=20260308-accounts",
-  "./icon-192.svg?v=20260308-accounts",
-  "./icon-512.svg?v=20260308-accounts"
+  "./config.js?v=20260308-meal-target",
+  "./styles.css?v=20260308-meal-target",
+  "./app.js?v=20260308-meal-target",
+  "./manifest.webmanifest?v=20260308-meal-target",
+  "./icon-192.svg?v=20260308-meal-target",
+  "./icon-512.svg?v=20260308-meal-target"
 ];
 
 self.addEventListener("install", (event) => {

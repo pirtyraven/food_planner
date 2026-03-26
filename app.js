@@ -63,9 +63,7 @@ const state = loadState();
 const accountPicker = document.getElementById("accountPicker");
 const showSharedMeals = document.getElementById("showSharedMeals");
 const weekPicker = document.getElementById("weekPicker");
-const applyRotationBtn = document.getElementById("applyRotation");
 const randomizeWeekMenuBtn = document.getElementById("randomizeWeekMenu");
-const rotationStatus = document.getElementById("rotationStatus");
 const mealForm = document.getElementById("mealForm");
 const mealName = document.getElementById("mealName");
 const mealIngredients = document.getElementById("mealIngredients");
@@ -137,10 +135,6 @@ function registerEvents() {
     render();
   });
 
-  applyRotationBtn.addEventListener("click", () => {
-    resetWeekToDefaultRotation(state.activeWeek);
-  });
-
   randomizeWeekMenuBtn.addEventListener("click", () => {
     randomizeWeekMenu(state.activeWeek);
   });
@@ -206,7 +200,6 @@ function registerEvents() {
 
 function render() {
   ensureWeek(state.activeWeek);
-  renderRotationStatus();
   renderMeals();
   renderSelectedMeals();
   renderShoppingList();
@@ -216,10 +209,6 @@ function render() {
   decreaseMealTargetBtn.disabled = week.mealTarget <= MIN_WEEK_MEALS;
   increaseMealTargetBtn.disabled = week.mealTarget >= MAX_WEEK_MEALS;
   selectedCount.textContent = `${week.mealIds.length} / ${week.mealTarget} valda`;
-}
-
-function renderRotationStatus() {
-  rotationStatus.textContent = `Standard för ${state.activeWeek}: slumpad med vikt mot rätter som inte valts på länge.`;
 }
 
 function renderMeals() {
@@ -521,17 +510,6 @@ function deleteMeal(mealId) {
   });
   markMealsUpdated(ownerAccountId);
   Object.keys(state.weeks).forEach((weekKey) => markWeekUpdated(weekKey));
-  saveState();
-  render();
-}
-
-function resetWeekToDefaultRotation(weekKey) {
-  ensureWeek(weekKey);
-  const week = getWeek(weekKey);
-  const fullDefault = buildCompleteDefaultMenu(weekKey, week.defaultMealIds);
-  week.defaultMealIds = fullDefault;
-  week.mealIds = [...fullDefault];
-  markWeekUpdated(weekKey);
   saveState();
   render();
 }
